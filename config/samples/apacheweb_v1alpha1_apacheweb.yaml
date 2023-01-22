@@ -1,0 +1,23 @@
+apiVersion: apacheweb.arsenal.dev/v1alpha1
+kind: Apacheweb
+metadata:
+  labels:
+    app.kubernetes.io/name: apacheweb
+    app.kubernetes.io/instance: apacheweb-sample
+    app.kubernetes.io/part-of: apache-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: apache-operator
+  name: apacheweb-sample
+spec:
+  serverName: "test.example.com"
+  size: 1
+  type: "lb"
+  loadBalancer:
+    backEnds:
+     - proto: https
+       port: 1234
+       serverName: remote.local
+     - proto: https
+       port: 4321
+       serverName: remote2.local
+    path: /test
