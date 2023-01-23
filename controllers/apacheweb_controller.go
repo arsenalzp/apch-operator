@@ -21,7 +21,9 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -33,7 +35,8 @@ import (
 // ApachewebReconciler reconciles a Apacheweb object
 type ApachewebReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	recorder record.EventRecorder
 }
 
 //+kubebuilder:rbac:groups=apacheweb.arsenal.dev,resources=apachewebs,verbs=get;list;watch;create;update;patch;delete
@@ -54,44 +57,96 @@ type ApachewebReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logr := log.FromContext(ctx).WithValues("apacheWeb", req.NamespacedName)
-
-	logr.Info("start apacheWeb reconciliation")
-
-	var apacheWeb v1alpha1.Apacheweb
-	if err := r.Get(ctx, req.NamespacedName, &apacheWeb); err != nil {
-		logr.Error(err, "unable to fetch Apacheweb")
-		return ctrl.Result{}, client.IgnoreNotFound(err)
-	}
-
 	var confMap corev1.ConfigMap
-	confMap, err := r.dependentConfmap(apacheWeb)
-	if err != nil {
-		logr.Error(err, "unable to create Apacheweb configMap")
+	var deployment appsv1.Deployment
+	var apacheWeb v1alpha1.Apacheweb
+
+	logr := log.FromContext(ctx).WithValues("ApacheWeb", req.NamespacedName)
+
+	logr.Info("start ApacheWeb reconciliation")
+	if err := r.Get(ctx, req.NamespacedName, &apacheWeb); err != nil {
+		if errors.IsNotFound(err) {
+			logr.Error(err, "ApacheWeb not found")
+			return ctrl.Result{}, client.IgnoreNotFound(err)
+		}
+
+		logr.Error(err, "unable to fetch ApacheWeb")
 		return ctrl.Result{}, err
 	}
 
-	var deployment appsv1.Deployment
+	// Try to get the resource
+	err := r.Get(ctx, req.NamespacedName, &confMap)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			confMap, err = r.dependentConfmap(apacheWeb)
+			if err != nil {
+				logr.Error(err, "unable to create Apacheweb configMap")
+				return ctrl.Result{}, err
+			}
+
+			// Create the resource
+			if err := r.Create(ctx, &confMap); err != nil {
+				return ctrl.Result{}, err
+			}
+
+			// Record the creation event
+			r.recorder.Eventf(&apacheWeb, "Normal", "Created", "ConfigMap %s created", confMap.Name)
+		}
+		return ctrl.Result{}, err
+	}
+
+	// Try to get the resource
+	err = r.Get(ctx, req.NamespacedName, &deployment)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			deployment, err = r.dependentDeployment(apacheWeb, confMap)
+			if err != nil {
+				logr.Error(err, "unable to create Apacheweb deployment")
+				return ctrl.Result{}, err
+			}
+
+			// Create the resource
+			if err := r.Create(ctx, &deployment); err != nil {
+				return ctrl.Result{}, err
+			}
+
+			// Record the creation event
+			r.recorder.Eventf(&apacheWeb, "Normal", "Created", "Deployment %s created", deployment.Name)
+		}
+		return ctrl.Result{}, err
+	}
+
+	applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("ApacheWeb")}
+
+	// Create Deployment template
 	deployment, err = r.dependentDeployment(apacheWeb, confMap)
 	if err != nil {
 		logr.Error(err, "unable to create Apacheweb deployment")
 		return ctrl.Result{}, err
 	}
 
-	applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("apacheweb")}
-
+	// Patch Deployment resource
 	err = r.Patch(ctx, &deployment, client.Apply, applyOpts...)
 	if err != nil {
 		logr.Error(err, "unable to patch Apacheweb deployment")
 		return ctrl.Result{}, err
 	}
 
+	// Create ConfigMap template
+	confMap, err = r.dependentConfmap(apacheWeb)
+	if err != nil {
+		logr.Error(err, "unable to create Apacheweb configMap")
+		return ctrl.Result{}, err
+	}
+
+	// Patch ConfigMap resource
 	err = r.Patch(ctx, &confMap, client.Apply, applyOpts...)
 	if err != nil {
 		logr.Error(err, "unable to patch Apacheweb configMap")
 		return ctrl.Result{}, err
 	}
 
+	// Update ApacheWeb status
 	err = r.Status().Update(ctx, &apacheWeb)
 	if err != nil {
 		logr.Error(err, "unable to update Apacheweb status")
@@ -104,6 +159,9 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *ApachewebReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Configure Event Recorder for Apacheweb resource
+	r.recorder = mgr.GetEventRecorderFor("apacheweb-controller")
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&apachewebv1alpha1.Apacheweb{}).
 		Owns(&appsv1.Deployment{}).
