@@ -9,7 +9,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func (r *ApachewebReconciler) dependentDeployment(aw v1alpha1.Apacheweb, cf corev1.ConfigMap) (appsv1.Deployment, error) {
+func (r *ApachewebReconciler) dependentDeployment(aw v1alpha1.Apacheweb, cf corev1.ConfigMap, epVersion string) (appsv1.Deployment, error) {
 	deployment := appsv1.Deployment{
 		TypeMeta: v1.TypeMeta{
 			APIVersion: appsv1.SchemeGroupVersion.String(),
@@ -27,7 +27,8 @@ func (r *ApachewebReconciler) dependentDeployment(aw v1alpha1.Apacheweb, cf core
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{"servername": aw.Spec.ServerName},
+					Labels:      map[string]string{"servername": aw.Spec.ServerName},
+					Annotations: map[string]string{"endPointSliceVersion": epVersion},
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{

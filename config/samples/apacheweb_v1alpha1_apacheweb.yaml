@@ -10,14 +10,9 @@ metadata:
   name: apacheweb-sample
 spec:
   serverName: "test.example.com"
-  size: 1
+  size: 2
   type: "lb"
   loadBalancer:
-    backEnds:
-     - proto: https
-       port: 1234
-       serverName: remote.local
-     - proto: https
-       port: 4321
-       serverName: remote2.local
+    proto: http
     path: /test
+    backEndService: httpd-test

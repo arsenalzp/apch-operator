@@ -70,3 +70,19 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - service
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - discovery
+  resources:
+  - endpointslice
+  verbs:
+  - get
+  - list
+  - watch

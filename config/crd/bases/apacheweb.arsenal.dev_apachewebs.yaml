@@ -36,27 +36,16 @@ spec:
             properties:
               loadBalancer:
                 properties:
-                  backEnds:
-                    items:
-                      properties:
-                        port:
-                          format: int32
-                          type: integer
-                        proto:
-                          type: string
-                        serverName:
-                          type: string
-                      required:
-                      - port
-                      - proto
-                      - serverName
-                      type: object
-                    type: array
+                  backEndService:
+                    type: string
                   path:
                     type: string
+                  proto:
+                    type: string
                 required:
-                - backEnds
+                - backEndService
                 - path
+                - proto
                 type: object
               serverName:
                 type: string
@@ -67,7 +56,7 @@ spec:
                 type: integer
               size:
                 format: int32
-                minimum: 1
+                minimum: 2
                 type: integer
               type:
                 enum:
@@ -83,29 +72,18 @@ spec:
           status:
             description: ApachewebStatus defines the observed state of Apacheweb
             properties:
-              loadBalancer:
+              backEnds:
                 properties:
-                  backEnds:
-                    items:
-                      properties:
-                        port:
-                          format: int32
-                          type: integer
-                        proto:
-                          type: string
-                        serverName:
-                          type: string
-                      required:
-                      - port
-                      - proto
-                      - serverName
-                      type: object
-                    type: array
-                  path:
+                  port:
+                    format: int32
+                    type: integer
+                  serverName:
                     type: string
+                  status:
+                    type: boolean
                 required:
-                - backEnds
-                - path
+                - port
+                - serverName
                 type: object
               port:
                 format: int32
@@ -118,6 +96,7 @@ spec:
               type:
                 type: string
             required:
+            - backEnds
             - port
             - serverPort
             - size

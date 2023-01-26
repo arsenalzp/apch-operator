@@ -7,11 +7,28 @@ import (
 	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
+	discovery "k8s.io/api/discovery/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func (r *ApachewebReconciler) dependentConfmap(aw v1alpha1.Apacheweb) (corev1.ConfigMap, error) {
+type EndPoint struct {
+	IPAddress string
+	Proto     string
+	Port      int32
+	Status    bool
+}
+
+type LoadBalancer struct {
+	EndPointsList []EndPoint
+	Path          string
+	Type          string
+	ServerPort    int32
+}
+
+func (r *ApachewebReconciler) dependentConfmap(aw v1alpha1.Apacheweb, es discovery.EndpointSlice) (corev1.ConfigMap, error) {
+	var be LoadBalancer
+
 	t := template.New(aw.Spec.Type)
 	t, err := t.Parse(templateBody)
 	if err != nil {
@@ -19,8 +36,15 @@ func (r *ApachewebReconciler) dependentConfmap(aw v1alpha1.Apacheweb) (corev1.Co
 		return corev1.ConfigMap{}, err
 	}
 
+	be = LoadBalancer{
+		EndPointsList: genBackEndsList(aw.Spec.LoadBalancer.Proto, es),
+		Path:          aw.Spec.LoadBalancer.Path,
+		Type:          aw.Spec.Type,
+		ServerPort:    aw.Spec.ServerPort,
+	}
+
 	var httpdConf bytes.Buffer
-	if err := t.Execute(&httpdConf, aw); err != nil {
+	if err := t.Execute(&httpdConf, be); err != nil {
 		fmt.Printf("Unabel execute parser %s", err)
 		return corev1.ConfigMap{}, err
 	}

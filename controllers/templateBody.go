@@ -28,22 +28,20 @@ LoadModule autoindex_module modules/mod_autoindex.so
 LoadModule dir_module modules/mod_dir.so
 LoadModule alias_module modules/mod_alias.so
 
-{{- if eq .Spec.Type "lb"}}
+{{- if eq .Type "lb"}}
 LoadModule proxy_module modules/mod_proxy.so
 LoadModule proxy_balancer_module modules/mod_proxy_balancer.so
 LoadModule proxy_http_module modules/mod_proxy_http.so
 LoadModule slotmem_shm_module modules/mod_slotmem_shm.so
 LoadModule lbmethod_byrequests_module modules/mod_lbmethod_byrequests.so
 <Proxy balancer://lb>
-Order Deny,Allow
-Allow from all
-	{{- range .Spec.LoadBalancer.BackEnds }}
-		BalancerMember {{.Proto}}://{{.ServerName}}:{{.Port}}
+	{{- range .EndPointsList }}
+		BalancerMember {{.Proto}}://{{.IPAddress}}:{{.Port}}
 	{{- end }}
 </Proxy>
 
-ProxyPass {{.Spec.LoadBalancer.Path}} balancer://lb>
-ProxyPassReverse {{.Spec.LoadBalancer.Path}} balancer://lb>
+ProxyPass {{.Path}} balancer://lb>
+ProxyPassReverse {{.Path}} balancer://lb>
 {{- end}}
 
 <IfModule unixd_module>
@@ -52,7 +50,7 @@ Group www-data
 </IfModule>
 
 # Port to Listen on
-Listen {{.Spec.ServerPort}}
+Listen {{.ServerPort}}
 
 ServerAdmin you@example.com
 

@@ -26,18 +26,19 @@ import (
 // ApachewebSpec defines the desired state of Apacheweb
 
 type BackEnds struct {
-	Proto      string `json:"proto"`
 	ServerName string `json:"serverName"`
 	Port       int32  `json:"port"`
+	Status     *bool  `json:"status,omitempty"`
 }
 
 type LoadBalancer struct {
-	BackEnds []BackEnds `json:"backEnds"`
-	Path     string     `json:"path"`
+	Proto          string `json:"proto"`
+	Path           string `json:"path"`
+	BackEndService string `json:"backEndService"`
 }
 
 type ApachewebSpec struct {
-	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Minimum=2
 	Size int32 `json:"size"`
 
 	ServerName string `json:"serverName"`
@@ -55,11 +56,11 @@ type ApachewebSpec struct {
 
 // ApachewebStatus defines the observed state of Apacheweb
 type ApachewebStatus struct {
-	Size         int32         `json:"size"`
-	ServerName   string        `json:"serverPort"`
-	ServerPort   int32         `json:"port"`
-	Type         string        `json:"type"`
-	LoadBalancer *LoadBalancer `json:"loadBalancer,omitempty"`
+	Size       int32    `json:"size"`
+	ServerName string   `json:"serverPort"`
+	ServerPort int32    `json:"port"`
+	Type       string   `json:"type"`
+	BackEnds   BackEnds `json:"backEnds"`
 }
 
 //+kubebuilder:object:root=true
