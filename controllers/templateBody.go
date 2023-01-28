@@ -36,7 +36,9 @@ LoadModule slotmem_shm_module modules/mod_slotmem_shm.so
 LoadModule lbmethod_byrequests_module modules/mod_lbmethod_byrequests.so
 <Proxy balancer://lb>
 	{{- range .EndPointsList }}
+        {{- if .Status }}
 		BalancerMember {{.Proto}}://{{.IPAddress}}:{{.Port}}
+        {{- end}}
 	{{- end }}
 </Proxy>
 

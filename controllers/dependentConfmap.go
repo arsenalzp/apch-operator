@@ -12,15 +12,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-type EndPoint struct {
-	IPAddress string
-	Proto     string
-	Port      int32
-	Status    bool
-}
-
 type LoadBalancer struct {
-	EndPointsList []EndPoint
+	EndPointsList []v1alpha1.EndPoint
 	Path          string
 	Type          string
 	ServerPort    int32
@@ -36,6 +29,7 @@ func (r *ApachewebReconciler) dependentConfmap(aw v1alpha1.Apacheweb, es discove
 		return corev1.ConfigMap{}, err
 	}
 
+	// Load balancer configuration
 	be = LoadBalancer{
 		EndPointsList: genBackEndsList(aw.Spec.LoadBalancer.Proto, es),
 		Path:          aw.Spec.LoadBalancer.Path,

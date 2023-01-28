@@ -72,19 +72,24 @@ spec:
           status:
             description: ApachewebStatus defines the observed state of Apacheweb
             properties:
-              backEnds:
-                properties:
-                  port:
-                    format: int32
-                    type: integer
-                  serverName:
-                    type: string
-                  status:
-                    type: boolean
-                required:
-                - port
-                - serverName
-                type: object
+              endPoints:
+                items:
+                  properties:
+                    ipAddress:
+                      type: string
+                    port:
+                      format: int32
+                      type: integer
+                    proto:
+                      type: string
+                    status:
+                      type: boolean
+                  required:
+                  - ipAddress
+                  - port
+                  - proto
+                  type: object
+                type: array
               port:
                 format: int32
                 type: integer
@@ -96,7 +101,7 @@ spec:
               type:
                 type: string
             required:
-            - backEnds
+            - endPoints
             - port
             - serverPort
             - size

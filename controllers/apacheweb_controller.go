@@ -174,18 +174,16 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	// for i := range apacheWeb.Status.LoadBalancer.BackEnds {
-	// 	for y := range endPointSlice.Endpoints {
-	// 		apacheWeb.Status.LoadBalancer.BackEnds[i].ServerName = endPointSlice.Endpoints[y].Addresses[0]
-	// 		apacheWeb.Status.LoadBalancer.BackEnds[i].Status = endPointSlice.Endpoints[y].Conditions.Ready
-	// 	}
-	// 	apacheWeb.Status.LoadBalancer.BackEnds[0].Proto = string(*endPointSlice.Ports[0].Protocol)
-	// 	apacheWeb.Status.LoadBalancer.BackEnds[0].Port = *endPointSlice.Ports[0].Port
-	// }
+	epList := genBackEndsList(apacheWeb.Spec.LoadBalancer.Proto, endPointSlice)
+	apacheWeb.Status.EndPoints = epList
+	for _, ep := range epList {
+		r.recorder.Eventf(&apacheWeb, "Normal", "Created", "EndPoint added IPAddress %s, port %d, protocol %s, status %t", ep.IPAddress, ep.Port, ep.Proto, ep.Status)
+	}
 
 	// Update ApacheWeb status
 	err = r.Status().Update(ctx, &apacheWeb)
 	if err != nil {
+		//fmt.Println(apacheWeb.Status.EndPoints)
 		logr.Error(err, "unable to update Apacheweb status")
 		return ctrl.Result{}, err
 	}

@@ -25,10 +25,11 @@ import (
 
 // ApachewebSpec defines the desired state of Apacheweb
 
-type BackEnds struct {
-	ServerName string `json:"serverName"`
-	Port       int32  `json:"port"`
-	Status     *bool  `json:"status,omitempty"`
+type EndPoint struct {
+	IPAddress string `json:"ipAddress"`
+	Proto     string `json:"proto"`
+	Port      int32  `json:"port"`
+	Status    bool   `json:"status,omitempty"`
 }
 
 type LoadBalancer struct {
@@ -56,11 +57,11 @@ type ApachewebSpec struct {
 
 // ApachewebStatus defines the observed state of Apacheweb
 type ApachewebStatus struct {
-	Size       int32    `json:"size"`
-	ServerName string   `json:"serverPort"`
-	ServerPort int32    `json:"port"`
-	Type       string   `json:"type"`
-	BackEnds   BackEnds `json:"backEnds"`
+	Size       int32      `json:"size"`
+	ServerName string     `json:"serverPort"`
+	ServerPort int32      `json:"port"`
+	Type       string     `json:"type"`
+	EndPoints  []EndPoint `json:"endPoints"`
 }
 
 //+kubebuilder:object:root=true
