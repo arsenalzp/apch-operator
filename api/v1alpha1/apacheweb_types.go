@@ -39,7 +39,7 @@ type LoadBalancer struct {
 }
 
 type ApachewebSpec struct {
-	// +kubebuilder:validation:Minimum=2
+	// +kubebuilder:validation:Minimum=1
 	Size int32 `json:"size"`
 
 	ServerName string `json:"serverName"`

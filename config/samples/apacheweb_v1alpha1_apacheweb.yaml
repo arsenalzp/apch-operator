@@ -12,6 +12,7 @@ spec:
   serverName: "test.example.com"
   size: 2
   type: "lb"
+  serverPort: 8888
   loadBalancer:
     proto: http
     path: /test

@@ -7,7 +7,6 @@ import (
 	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
-	discovery "k8s.io/api/discovery/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -19,7 +18,10 @@ type LoadBalancer struct {
 	ServerPort    int32
 }
 
-func (r *ApachewebReconciler) dependentConfmap(aw v1alpha1.Apacheweb, es discovery.EndpointSlice) (corev1.ConfigMap, error) {
+// generate ConfigMap resource from the given input
+// ConfigMap store Apace HTTPD configuration - httpd.conf file
+// which is mounted to /usr/local/apache2/conf directory
+func (r *ApachewebReconciler) dependentConfmap(aw v1alpha1.Apacheweb, ep []v1alpha1.EndPoint, epversion string) (corev1.ConfigMap, error) {
 	var be LoadBalancer
 
 	t := template.New(aw.Spec.Type)
@@ -31,7 +33,7 @@ func (r *ApachewebReconciler) dependentConfmap(aw v1alpha1.Apacheweb, es discove
 
 	// Load balancer configuration
 	be = LoadBalancer{
-		EndPointsList: genBackEndsList(aw.Spec.LoadBalancer.Proto, es),
+		EndPointsList: ep,
 		Path:          aw.Spec.LoadBalancer.Path,
 		Type:          aw.Spec.Type,
 		ServerPort:    aw.Spec.ServerPort,
@@ -51,7 +53,9 @@ func (r *ApachewebReconciler) dependentConfmap(aw v1alpha1.Apacheweb, es discove
 		ObjectMeta: v1.ObjectMeta{
 			Namespace: aw.Namespace,
 			Name:      aw.Name,
-			Labels:    map[string]string{"servername": aw.Spec.ServerName},
+			Labels: map[string]string{
+				"servername": aw.Spec.ServerName,
+			},
 		},
 		Data: map[string]string{
 			"httpd.conf": httpdConf.String(),

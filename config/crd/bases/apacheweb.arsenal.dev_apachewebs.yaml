@@ -56,7 +56,7 @@ spec:
                 type: integer
               size:
                 format: int32
-                minimum: 2
+                minimum: 1
                 type: integer
               type:
                 enum:

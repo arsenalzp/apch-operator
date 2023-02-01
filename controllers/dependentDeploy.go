@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"apache-operator/api/v1alpha1"
+	"crypto/md5"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -9,7 +10,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
+// generate Deployment resource from the given input
+// Deployment resource is used for Apache HTTPD load balancer Pods
 func (r *ApachewebReconciler) dependentDeployment(aw v1alpha1.Apacheweb, cf corev1.ConfigMap, epVersion string) (appsv1.Deployment, error) {
+	checkSum := md5.Sum([]byte(cf.Data["httpd.conf"]))
+
 	deployment := appsv1.Deployment{
 		TypeMeta: v1.TypeMeta{
 			APIVersion: appsv1.SchemeGroupVersion.String(),
@@ -28,7 +33,7 @@ func (r *ApachewebReconciler) dependentDeployment(aw v1alpha1.Apacheweb, cf core
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels:      map[string]string{"servername": aw.Spec.ServerName},
-					Annotations: map[string]string{"endPointSliceVersion": epVersion},
+					Annotations: map[string]string{"configMapCheckSum": string(checkSum[:])},
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
@@ -56,7 +61,7 @@ func (r *ApachewebReconciler) dependentDeployment(aw v1alpha1.Apacheweb, cf core
 							VolumeSource: corev1.VolumeSource{
 								ConfigMap: &corev1.ConfigMapVolumeSource{
 									LocalObjectReference: corev1.LocalObjectReference{
-										Name: cf.Name,
+										Name: cf.GetName(),
 									},
 								},
 							},

@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"crypto/md5"
 	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -62,7 +63,7 @@ type ApachewebReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var confMap corev1.ConfigMap
+	var configMap corev1.ConfigMap
 	var deployment appsv1.Deployment
 	var apacheWeb v1alpha1.Apacheweb
 	var endPointSliceList discovery.EndpointSliceList
@@ -75,8 +76,8 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// Get Apacheweb resource
 	if err := r.Get(ctx, req.NamespacedName, &apacheWeb); err != nil {
 		if errors.IsNotFound(err) {
-			logr.Error(err, "ApacheWeb not found")
-			return ctrl.Result{}, client.IgnoreNotFound(err)
+			logr.Error(err, "ApacheWeb object not found")
+			return ctrl.Result{}, err
 		}
 
 		logr.Error(err, "unable to fetch ApacheWeb")
@@ -84,14 +85,8 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	// Get the list of EndpointSlices
-	err := r.List(ctx, &endPointSliceList, client.InNamespace(req.Namespace))
-	if err != nil {
-		if errors.IsNotFound(err) {
-			logr.Error(err, "Apacheweb endpoints slice not found")
-			return ctrl.Result{}, client.IgnoreNotFound(err)
-		}
-
-		logr.Error(err, "unable to retrieve Apacheweb endpoints slice")
+	if err := r.List(ctx, &endPointSliceList, client.InNamespace(req.Namespace)); err != nil {
+		logr.Error(err, "unable to retrieve EndPointSlice list")
 		return ctrl.Result{}, err
 	}
 
@@ -102,79 +97,55 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}
 
-	// Get ConfigMap resource
-	err = r.Get(ctx, req.NamespacedName, &confMap)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			confMap, err = r.dependentConfmap(apacheWeb, endPointSlice)
-			if err != nil {
-				logr.Error(err, "unable to create Apacheweb configMap")
-				return ctrl.Result{}, err
-			}
+	epList := genBackEndsList(apacheWeb.Spec.LoadBalancer.Proto, endPointSlice)
 
-			// Create the resource
-			if err := r.Create(ctx, &confMap); err != nil {
-				return ctrl.Result{}, err
-			}
-
-			// Record the creation event
-			r.recorder.Eventf(&apacheWeb, "Normal", "Created", "ConfigMap %s created", confMap.Name)
-		}
+	// Get the Deployment objects
+	if err := r.Get(ctx, req.NamespacedName, &deployment); err != nil && !errors.IsNotFound(err) {
+		logr.Error(err, "unable to get Deployment object")
 		return ctrl.Result{}, err
 	}
 
-	// Get Deployment resource
-	err = r.Get(ctx, req.NamespacedName, &deployment)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			deployment, err = r.dependentDeployment(apacheWeb, confMap, endPointSlice.ResourceVersion)
-			if err != nil {
-				logr.Error(err, "unable to create Apacheweb deployment")
-				return ctrl.Result{}, err
-			}
-
-			// Create the resource
-			if err := r.Create(ctx, &deployment); err != nil {
-				return ctrl.Result{}, err
-			}
-
-			// Record the creation event
-			r.recorder.Eventf(&apacheWeb, "Normal", "Created", "Deployment %s created", deployment.Name)
-		}
+	// Get the ConfigMap object
+	if err := r.Get(ctx, req.NamespacedName, &configMap); err != nil && !errors.IsNotFound(err) {
+		logr.Error(err, "unable to get ConfigMap object")
 		return ctrl.Result{}, err
+	}
+
+	// Generate ConfigMap template
+	newConfMap, err := r.dependentConfmap(apacheWeb, epList, endPointSlice.GetResourceVersion())
+	if err != nil {
+		logr.Error(err, "unable to generate Apacheweb configMap")
+		return ctrl.Result{}, err
+	}
+
+	// If an old and a new ConfigMap object are equal stop reconciliation
+	if isConfiMapsEqual(&configMap, &newConfMap) {
+		logr.Info("ConfigMap wasn't changed, nothing to patch, finishing apacheWeb reconciliation")
+		return ctrl.Result{}, nil
 	}
 
 	applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("ApacheWeb")}
 
-	// Create Deployment template
-	deployment, err = r.dependentDeployment(apacheWeb, confMap, endPointSlice.ResourceVersion)
+	// Generate Deployment template
+	deployment, err = r.dependentDeployment(apacheWeb, newConfMap, endPointSlice.ResourceVersion)
 	if err != nil {
-		logr.Error(err, "unable to create Apacheweb deployment")
+		logr.Error(err, "unable to generate Apacheweb deployment")
 		return ctrl.Result{}, err
 	}
 
-	// Create ConfigMap template
-	confMap, err = r.dependentConfmap(apacheWeb, endPointSlice)
-	if err != nil {
-		logr.Error(err, "unable to create Apacheweb configMap")
+	// Patch ConfigMap resource
+	if err := r.Patch(ctx, &newConfMap, client.Apply, applyOpts...); err != nil {
+		logr.Error(err, "unable to patch Apacheweb configMap")
 		return ctrl.Result{}, err
 	}
 
-	// Patch Deployment resource
+	// Patch Deployment object
 	err = r.Patch(ctx, &deployment, client.Apply, applyOpts...)
 	if err != nil {
 		logr.Error(err, "unable to patch Apacheweb deployment")
 		return ctrl.Result{}, err
 	}
 
-	// Patch ConfigMap resource
-	err = r.Patch(ctx, &confMap, client.Apply, applyOpts...)
-	if err != nil {
-		logr.Error(err, "unable to patch Apacheweb configMap")
-		return ctrl.Result{}, err
-	}
-
-	epList := genBackEndsList(apacheWeb.Spec.LoadBalancer.Proto, endPointSlice)
 	apacheWeb.Status.EndPoints = epList
 	for _, ep := range epList {
 		r.recorder.Eventf(&apacheWeb, "Normal", "Created", "EndPoint added IPAddress %s, port %d, protocol %s, status %t", ep.IPAddress, ep.Port, ep.Proto, ep.Status)
@@ -183,7 +154,6 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// Update ApacheWeb status
 	err = r.Status().Update(ctx, &apacheWeb)
 	if err != nil {
-		//fmt.Println(apacheWeb.Status.EndPoints)
 		logr.Error(err, "unable to update Apacheweb status")
 		return ctrl.Result{}, err
 	}
@@ -224,4 +194,8 @@ func (r *ApachewebReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			handler.EnqueueRequestsFromMapFunc(r.apacheWebUsingEndPoints),
 		).
 		Complete(r)
+}
+
+func isConfiMapsEqual(oldConfMap, newConfMap *corev1.ConfigMap) bool {
+	return md5.Sum([]byte(oldConfMap.Data["httpd.conf"])) == md5.Sum([]byte(newConfMap.Data["httpd.conf"]))
 }

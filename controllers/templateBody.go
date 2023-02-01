@@ -42,8 +42,8 @@ LoadModule lbmethod_byrequests_module modules/mod_lbmethod_byrequests.so
 	{{- end }}
 </Proxy>
 
-ProxyPass {{.Path}} balancer://lb>
-ProxyPassReverse {{.Path}} balancer://lb>
+ProxyPass {{.Path}} balancer://lb
+ProxyPassReverse {{.Path}} balancer://lb
 {{- end}}
 
 <IfModule unixd_module>
