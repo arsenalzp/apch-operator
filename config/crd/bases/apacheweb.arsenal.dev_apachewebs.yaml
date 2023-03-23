@@ -63,6 +63,16 @@ spec:
                 - web
                 - lb
                 type: string
+              webServer:
+                properties:
+                  documentRoot:
+                    type: string
+                  serverAdmin:
+                    type: string
+                required:
+                - documentRoot
+                - serverAdmin
+                type: object
             required:
             - serverName
             - serverPort
@@ -100,8 +110,17 @@ spec:
                 type: integer
               type:
                 type: string
+              webServer:
+                properties:
+                  documentRoot:
+                    type: string
+                  serverAdmin:
+                    type: string
+                required:
+                - documentRoot
+                - serverAdmin
+                type: object
             required:
-            - endPoints
             - port
             - serverPort
             - size

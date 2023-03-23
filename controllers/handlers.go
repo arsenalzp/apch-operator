@@ -9,7 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func (r *ApachewebReconciler) apacheWebUsingEndPoints(es client.Object) []ctrl.Request {
+func (r *ApachewebReconciler) getApacheWebWithEndPoints(es client.Object) []ctrl.Request {
 	listOptions := []client.ListOption{
 		// matching our index
 		client.MatchingFields{".spec.loadBalancer.backEndService": es.GetLabels()["kubernetes.io/service-name"]},

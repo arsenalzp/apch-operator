@@ -66,8 +66,6 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	var configMap corev1.ConfigMap
 	var deployment appsv1.Deployment
 	var apacheWeb v1alpha1.Apacheweb
-	var endPointSliceList discovery.EndpointSliceList
-	var endPointSlice discovery.EndpointSlice
 
 	logr := log.FromContext(ctx).WithValues("ApacheWeb", req.NamespacedName)
 
@@ -84,75 +82,128 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
-	// Get the list of EndpointSlices
-	if err := r.List(ctx, &endPointSliceList, client.InNamespace(req.Namespace)); err != nil {
-		logr.Error(err, "unable to retrieve EndPointSlice list")
-		return ctrl.Result{}, err
-	}
+	switch apacheWeb.Spec.Type {
+	case "lb":
+		var endPointSliceList discovery.EndpointSliceList
 
-	for _, i := range endPointSliceList.Items {
-		if i.Labels["kubernetes.io/service-name"] == apacheWeb.Spec.LoadBalancer.BackEndService {
-			endPointSlice = i
-			break
+		// Get the list of EndpointSlices
+		if err := r.List(ctx, &endPointSliceList, client.InNamespace(req.Namespace)); err != nil {
+			logr.Error(err, "unable to retrieve EndPointSlice list")
+			return ctrl.Result{}, err
 		}
-	}
 
-	epList := genBackEndsList(apacheWeb.Spec.LoadBalancer.Proto, endPointSlice)
+		// Generate array of v1alpha1.EndPoint
+		epList := genBackEndsList(apacheWeb.Spec.LoadBalancer.BackEndService, apacheWeb.Spec.LoadBalancer.Proto, endPointSliceList)
 
-	// Get the Deployment objects
-	if err := r.Get(ctx, req.NamespacedName, &deployment); err != nil && !errors.IsNotFound(err) {
-		logr.Error(err, "unable to get Deployment object")
-		return ctrl.Result{}, err
-	}
+		// Get the Deployment objects
+		if err := r.Get(ctx, req.NamespacedName, &deployment); err != nil && !errors.IsNotFound(err) {
+			logr.Error(err, "unable to get Deployment object")
+			return ctrl.Result{}, err
+		}
 
-	// Get the ConfigMap object
-	if err := r.Get(ctx, req.NamespacedName, &configMap); err != nil && !errors.IsNotFound(err) {
-		logr.Error(err, "unable to get ConfigMap object")
-		return ctrl.Result{}, err
-	}
+		// Get the ConfigMap object
+		if err := r.Get(ctx, req.NamespacedName, &configMap); err != nil && !errors.IsNotFound(err) {
+			logr.Error(err, "unable to get ConfigMap object")
+			return ctrl.Result{}, err
+		}
 
-	// Generate ConfigMap template
-	newConfMap, err := r.dependentConfmap(apacheWeb, epList, endPointSlice.GetResourceVersion())
-	if err != nil {
-		logr.Error(err, "unable to generate Apacheweb configMap")
-		return ctrl.Result{}, err
-	}
+		// Generate ConfigMap template
+		newConfMap, err := r.createLbConfmap(apacheWeb, epList)
+		if err != nil {
+			logr.Error(err, "unable to generate Apacheweb configMap")
+			return ctrl.Result{}, err
+		}
 
-	// If an old and a new ConfigMap object are equal stop reconciliation
-	if isConfiMapsEqual(&configMap, &newConfMap) {
-		logr.Info("ConfigMap wasn't changed, nothing to patch, finishing apacheWeb reconciliation")
-		return ctrl.Result{}, nil
-	}
+		// If an old and a new ConfigMap object are equal then stop reconciliation process
+		if isConfiMapsEqual(&configMap, &newConfMap) {
+			logr.Info("ConfigMap wasn't changed, nothing to patch, finishing apacheWeb reconciliation")
+			return ctrl.Result{}, nil
+		}
 
-	applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("ApacheWeb")}
+		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("ApacheWeb")}
 
-	// Generate Deployment template
-	deployment, err = r.dependentDeployment(apacheWeb, newConfMap, endPointSlice.ResourceVersion)
-	if err != nil {
-		logr.Error(err, "unable to generate Apacheweb deployment")
-		return ctrl.Result{}, err
-	}
+		// Generate Deployment template
+		deployment, err = r.createDeployment(apacheWeb, newConfMap)
+		if err != nil {
+			logr.Error(err, "unable to generate Apacheweb deployment")
+			return ctrl.Result{}, err
+		}
 
-	// Patch ConfigMap resource
-	if err := r.Patch(ctx, &newConfMap, client.Apply, applyOpts...); err != nil {
-		logr.Error(err, "unable to patch Apacheweb configMap")
-		return ctrl.Result{}, err
-	}
+		// Patch ConfigMap resource
+		if err := r.Patch(ctx, &newConfMap, client.Apply, applyOpts...); err != nil {
+			logr.Error(err, "unable to patch Apacheweb configMap")
+			return ctrl.Result{}, err
+		}
 
-	// Patch Deployment object
-	err = r.Patch(ctx, &deployment, client.Apply, applyOpts...)
-	if err != nil {
-		logr.Error(err, "unable to patch Apacheweb deployment")
-		return ctrl.Result{}, err
-	}
+		// Patch Deployment object
+		err = r.Patch(ctx, &deployment, client.Apply, applyOpts...)
+		if err != nil {
+			logr.Error(err, "unable to patch Apacheweb deployment")
+			return ctrl.Result{}, err
+		}
 
-	apacheWeb.Status.EndPoints = epList
-	for _, ep := range epList {
-		r.recorder.Eventf(&apacheWeb, "Normal", "Created", "EndPoint added IPAddress %s, port %d, protocol %s, status %t", ep.IPAddress, ep.Port, ep.Proto, ep.Status)
+		apacheWeb.Status.EndPoints = epList
+		for _, ep := range epList {
+			if !ep.Status {
+				r.recorder.Eventf(&apacheWeb, "Warning", "Deleted", "EndPoint with IPAddress %s, port %d, protocol %s, has status %t and is being deleted from the list", ep.IPAddress, ep.Port, ep.Proto, ep.Status)
+			}
+
+			r.recorder.Eventf(&apacheWeb, "Normal", "Created", "EndPoint added IPAddress %s, port %d, protocol %s, status %t", ep.IPAddress, ep.Port, ep.Proto, ep.Status)
+		}
+
+	case "web":
+		// Get the Deployment objects
+		if err := r.Get(ctx, req.NamespacedName, &deployment); err != nil && !errors.IsNotFound(err) {
+			logr.Error(err, "unable to get Deployment object")
+			return ctrl.Result{}, err
+		}
+
+		// Get the ConfigMap object
+		if err := r.Get(ctx, req.NamespacedName, &configMap); err != nil && !errors.IsNotFound(err) {
+			logr.Error(err, "unable to get ConfigMap object")
+			return ctrl.Result{}, err
+		}
+
+		// Generate ConfigMap template
+		newConfMap, err := r.createWebConfmap(apacheWeb)
+		if err != nil {
+			logr.Error(err, "unable to generate Apacheweb configMap")
+			return ctrl.Result{}, err
+		}
+
+		// If an old and a new ConfigMap object are equal then stop reconciliation process
+		if isConfiMapsEqual(&configMap, &newConfMap) {
+			logr.Info("ConfigMap wasn't changed, nothing to patch, finishing apacheWeb reconciliation")
+			return ctrl.Result{}, nil
+		}
+
+		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("ApacheWeb")}
+
+		// Generate Deployment template
+		deployment, err = r.createDeployment(apacheWeb, newConfMap)
+		if err != nil {
+			logr.Error(err, "unable to generate Apacheweb deployment")
+			return ctrl.Result{}, err
+		}
+
+		// Patch ConfigMap resource
+		if err := r.Patch(ctx, &newConfMap, client.Apply, applyOpts...); err != nil {
+			logr.Error(err, "unable to patch Apacheweb configMap")
+			return ctrl.Result{}, err
+		}
+
+		// Patch Deployment object
+		err = r.Patch(ctx, &deployment, client.Apply, applyOpts...)
+		if err != nil {
+			logr.Error(err, "unable to patch Apacheweb deployment")
+			return ctrl.Result{}, err
+		}
+
+		r.recorder.Eventf(&apacheWeb, "Normal", "Created", "Apache Web Server with Port %d, ServerName %s, DocumentRoot %s was created", apacheWeb.Spec.ServerPort, apacheWeb.Spec.ServerName, apacheWeb.Spec.WebServer.DocumentRoot)
 	}
 
 	// Update ApacheWeb status
-	err = r.Status().Update(ctx, &apacheWeb)
+	err := r.Status().Update(ctx, &apacheWeb)
 	if err != nil {
 		logr.Error(err, "unable to update Apacheweb status")
 		return ctrl.Result{}, err
@@ -160,6 +211,7 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 	logr.Info("finish apacheWeb reconciliation")
 	return ctrl.Result{}, nil
+
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -191,7 +243,7 @@ func (r *ApachewebReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ConfigMap{}).
 		Watches(
 			&source.Kind{Type: &discovery.EndpointSlice{}},
-			handler.EnqueueRequestsFromMapFunc(r.apacheWebUsingEndPoints),
+			handler.EnqueueRequestsFromMapFunc(r.getApacheWebWithEndPoints),
 		).
 		Complete(r)
 }

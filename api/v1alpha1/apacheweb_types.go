@@ -25,6 +25,11 @@ import (
 
 // ApachewebSpec defines the desired state of Apacheweb
 
+type WebServer struct {
+	DocumentRoot string `json:"documentRoot"`
+	ServerAdmin  string `json:"serverAdmin"`
+}
+
 type EndPoint struct {
 	IPAddress string `json:"ipAddress"`
 	Proto     string `json:"proto"`
@@ -53,15 +58,23 @@ type ApachewebSpec struct {
 
 	// +optional
 	LoadBalancer *LoadBalancer `json:"loadBalancer,omitempty"`
+
+	// +optional
+	WebServer *WebServer `json:"webServer,omitempty"`
 }
 
 // ApachewebStatus defines the observed state of Apacheweb
 type ApachewebStatus struct {
-	Size       int32      `json:"size"`
-	ServerName string     `json:"serverPort"`
-	ServerPort int32      `json:"port"`
-	Type       string     `json:"type"`
-	EndPoints  []EndPoint `json:"endPoints"`
+	Size       int32  `json:"size"`
+	ServerName string `json:"serverPort"`
+	ServerPort int32  `json:"port"`
+	Type       string `json:"type"`
+
+	// +optional
+	EndPoints []EndPoint `json:"endPoints,omitempty"`
+
+	// +optional
+	WebServer *WebServer `json:"webServer,omitempty"`
 }
 
 //+kubebuilder:object:root=true

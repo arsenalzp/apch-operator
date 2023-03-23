@@ -12,7 +12,7 @@ import (
 
 // generate Deployment resource from the given input
 // Deployment resource is used for Apache HTTPD load balancer Pods
-func (r *ApachewebReconciler) dependentDeployment(aw v1alpha1.Apacheweb, cf corev1.ConfigMap, epVersion string) (appsv1.Deployment, error) {
+func (r *ApachewebReconciler) createDeployment(aw v1alpha1.Apacheweb, cf corev1.ConfigMap) (appsv1.Deployment, error) {
 	checkSum := md5.Sum([]byte(cf.Data["httpd.conf"]))
 
 	deployment := appsv1.Deployment{
