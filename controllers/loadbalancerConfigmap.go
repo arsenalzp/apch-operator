@@ -11,19 +11,10 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-type LoadBalancer struct {
-	EndPointsList []v1alpha1.EndPoint
-	Path          string
-	Type          string
-	ServerPort    int32
-}
-
 // generate ConfigMap resource from the given input
 // ConfigMap store Apace HTTPD configuration - httpd.conf file
 // which is mounted to /usr/local/apache2/conf directory
 func (r *ApachewebReconciler) createLbConfmap(aw v1alpha1.Apacheweb, ep []v1alpha1.EndPoint) (corev1.ConfigMap, error) {
-	var be LoadBalancer
-
 	t := template.New(aw.Spec.Type)
 	t, err := t.Parse(loadbalancerTemplate)
 	if err != nil {
@@ -32,15 +23,15 @@ func (r *ApachewebReconciler) createLbConfmap(aw v1alpha1.Apacheweb, ep []v1alph
 	}
 
 	// Load balancer configuration
-	be = LoadBalancer{
+	loadbalancerConfig := v1alpha1.LoadBalancer{
 		EndPointsList: ep,
+		Proto:         aw.Spec.LoadBalancer.Proto,
 		Path:          aw.Spec.LoadBalancer.Path,
-		Type:          aw.Spec.Type,
-		ServerPort:    aw.Spec.ServerPort,
+		ServerPort:    aw.Spec.LoadBalancer.ServerPort,
 	}
 
 	var httpdConf bytes.Buffer
-	if err := t.Execute(&httpdConf, be); err != nil {
+	if err := t.Execute(&httpdConf, loadbalancerConfig); err != nil {
 		fmt.Printf("Unabel execute parser %s", err)
 		return corev1.ConfigMap{}, err
 	}

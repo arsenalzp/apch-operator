@@ -32,7 +32,9 @@ func (r *ApachewebReconciler) createDeployment(aw v1alpha1.Apacheweb, cf corev1.
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels:      map[string]string{"servername": aw.Spec.ServerName},
+					Labels: map[string]string{
+						"servername": aw.Spec.ServerName,
+					},
 					Annotations: map[string]string{"configMapCheckSum": string(checkSum[:])},
 				},
 				Spec: corev1.PodSpec{

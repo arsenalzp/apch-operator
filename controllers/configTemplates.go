@@ -28,7 +28,6 @@ LoadModule autoindex_module modules/mod_autoindex.so
 LoadModule dir_module modules/mod_dir.so
 LoadModule alias_module modules/mod_alias.so
 
-{{- if eq .Type "lb"}}
 LoadModule proxy_module modules/mod_proxy.so
 LoadModule proxy_balancer_module modules/mod_proxy_balancer.so
 LoadModule proxy_http_module modules/mod_proxy_http.so
@@ -44,7 +43,6 @@ LoadModule lbmethod_byrequests_module modules/mod_lbmethod_byrequests.so
 
 ProxyPass {{.Path}} balancer://lb
 ProxyPassReverse {{.Path}} balancer://lb
-{{- end}}
 
 <IfModule unixd_module>
 User www-data
@@ -228,10 +226,10 @@ Group www-data
 # Port to Listen on
 Listen {{.ServerPort}}
 
-ServerAdmin you@example.com
+ServerAdmin {{.ServerAdmin}}
 
 # In a basic setup httpd can only serve files from its document root
-DocumentRoot "/usr/local/apache2/htdocs"
+DocumentRoot "{{.DocumentRoot}}"
 
 # Default file to serve
 DirectoryIndex index.html
@@ -248,8 +246,8 @@ CustomLog logs/access_log common
     Require all denied
 </Directory>
 
-DocumentRoot "/usr/local/apache2/htdocs"
-<Directory "/usr/local/apache2/htdocs">
+DocumentRoot "{{.DocumentRoot}}"
+<Directory "{{.DocumentRoot}}">
     #
     # Possible values for the Options directive are "None", "All",
     # or any combination of:

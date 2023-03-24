@@ -66,6 +66,7 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	var configMap corev1.ConfigMap
 	var deployment appsv1.Deployment
 	var apacheWeb v1alpha1.Apacheweb
+	var apacheWebSvc corev1.Service
 
 	logr := log.FromContext(ctx).WithValues("ApacheWeb", req.NamespacedName)
 
@@ -79,6 +80,11 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 
 		logr.Error(err, "unable to fetch ApacheWeb")
+		return ctrl.Result{}, err
+	}
+
+	if err := r.Get(ctx, req.NamespacedName, &apacheWebSvc); err != nil && !errors.IsNotFound(err) {
+		logr.Error(err, "unable to fetch ApacheWeb Service")
 		return ctrl.Result{}, err
 	}
 
@@ -122,7 +128,7 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("ApacheWeb")}
 
-		// Generate Deployment template
+		// Generate Deployment resource
 		deployment, err = r.createDeployment(apacheWeb, newConfMap)
 		if err != nil {
 			logr.Error(err, "unable to generate Apacheweb deployment")
@@ -136,8 +142,7 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 
 		// Patch Deployment object
-		err = r.Patch(ctx, &deployment, client.Apply, applyOpts...)
-		if err != nil {
+		if err := r.Patch(ctx, &deployment, client.Apply, applyOpts...); err != nil {
 			logr.Error(err, "unable to patch Apacheweb deployment")
 			return ctrl.Result{}, err
 		}
@@ -171,15 +176,9 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return ctrl.Result{}, err
 		}
 
-		// If an old and a new ConfigMap object are equal then stop reconciliation process
-		if isConfiMapsEqual(&configMap, &newConfMap) {
-			logr.Info("ConfigMap wasn't changed, nothing to patch, finishing apacheWeb reconciliation")
-			return ctrl.Result{}, nil
-		}
-
 		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("ApacheWeb")}
 
-		// Generate Deployment template
+		// Generate Deployment resource
 		deployment, err = r.createDeployment(apacheWeb, newConfMap)
 		if err != nil {
 			logr.Error(err, "unable to generate Apacheweb deployment")
@@ -193,18 +192,31 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 
 		// Patch Deployment object
-		err = r.Patch(ctx, &deployment, client.Apply, applyOpts...)
-		if err != nil {
+		if err := r.Patch(ctx, &deployment, client.Apply, applyOpts...); err != nil {
 			logr.Error(err, "unable to patch Apacheweb deployment")
 			return ctrl.Result{}, err
 		}
 
-		r.recorder.Eventf(&apacheWeb, "Normal", "Created", "Apache Web Server with Port %d, ServerName %s, DocumentRoot %s was created", apacheWeb.Spec.ServerPort, apacheWeb.Spec.ServerName, apacheWeb.Spec.WebServer.DocumentRoot)
+		r.recorder.Eventf(&apacheWeb, "Normal", "Created", "Apache Web Server created: ServerPort %d, ServerName %s, DocumentRoot %s", *apacheWeb.Spec.WebServer.ServerPort, apacheWeb.Spec.ServerName, apacheWeb.Spec.WebServer.DocumentRoot)
+	}
+
+	// Generate Service resource
+	newService, err := r.createService(apacheWeb)
+	if err != nil {
+		logr.Error(err, "unable to generate Apacheweb Service")
+		return ctrl.Result{}, err
+	}
+
+	applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("ApacheWeb")}
+
+	// Patch Apache Web Service
+	if err := r.Patch(ctx, &newService, client.Apply, applyOpts...); err != nil {
+		logr.Error(err, "unable to patch Apacheweb Service")
+		return ctrl.Result{}, err
 	}
 
 	// Update ApacheWeb status
-	err := r.Status().Update(ctx, &apacheWeb)
-	if err != nil {
+	if err := r.Status().Update(ctx, &apacheWeb); err != nil {
 		logr.Error(err, "unable to update Apacheweb status")
 		return ctrl.Result{}, err
 	}
@@ -225,7 +237,7 @@ func (r *ApachewebReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		".spec.loadBalancer.backEndService",
 		func(rawObj client.Object) []string {
 			apacheWeb := rawObj.(*v1alpha1.Apacheweb)
-			if apacheWeb.Spec.LoadBalancer.BackEndService == "" {
+			if apacheWeb.Spec.LoadBalancer == nil || apacheWeb.Spec.LoadBalancer.BackEndService == "" {
 				return nil
 			}
 
@@ -241,6 +253,7 @@ func (r *ApachewebReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&v1alpha1.Apacheweb{}).
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.ConfigMap{}).
+		Owns(&corev1.Service{}).
 		Watches(
 			&source.Kind{Type: &discovery.EndpointSlice{}},
 			handler.EnqueueRequestsFromMapFunc(r.getApacheWebWithEndPoints),

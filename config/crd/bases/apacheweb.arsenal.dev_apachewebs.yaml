@@ -38,22 +38,41 @@ spec:
                 properties:
                   backEndService:
                     type: string
+                  endPointsList:
+                    items:
+                      properties:
+                        ipAddress:
+                          type: string
+                        port:
+                          format: int32
+                          type: integer
+                        proto:
+                          type: string
+                        status:
+                          type: boolean
+                      required:
+                      - ipAddress
+                      - port
+                      - proto
+                      type: object
+                    type: array
                   path:
                     type: string
                   proto:
                     type: string
+                  serverPort:
+                    default: 8080
+                    format: int32
+                    minimum: 4096
+                    type: integer
                 required:
                 - backEndService
                 - path
                 - proto
+                - serverPort
                 type: object
               serverName:
                 type: string
-              serverPort:
-                default: 8080
-                format: int32
-                minimum: 4096
-                type: integer
               size:
                 format: int32
                 minimum: 1
@@ -69,13 +88,18 @@ spec:
                     type: string
                   serverAdmin:
                     type: string
+                  serverPort:
+                    default: 8080
+                    format: int32
+                    minimum: 4096
+                    type: integer
                 required:
                 - documentRoot
                 - serverAdmin
+                - serverPort
                 type: object
             required:
             - serverName
-            - serverPort
             - size
             - type
             type: object
@@ -116,9 +140,15 @@ spec:
                     type: string
                   serverAdmin:
                     type: string
+                  serverPort:
+                    default: 8080
+                    format: int32
+                    minimum: 4096
+                    type: integer
                 required:
                 - documentRoot
                 - serverAdmin
+                - serverPort
                 type: object
             required:
             - port

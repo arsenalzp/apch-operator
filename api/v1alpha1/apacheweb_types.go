@@ -28,6 +28,10 @@ import (
 type WebServer struct {
 	DocumentRoot string `json:"documentRoot"`
 	ServerAdmin  string `json:"serverAdmin"`
+
+	// +kubebuilder:default=8080
+	// +kubebuilder:validation:Minimum=4096
+	ServerPort *int32 `json:"serverPort"`
 }
 
 type EndPoint struct {
@@ -38,9 +42,14 @@ type EndPoint struct {
 }
 
 type LoadBalancer struct {
-	Proto          string `json:"proto"`
-	Path           string `json:"path"`
-	BackEndService string `json:"backEndService"`
+	EndPointsList  []EndPoint `json:"endPointsList,omitempty"`
+	Proto          string     `json:"proto"`
+	Path           string     `json:"path"`
+	BackEndService string     `json:"backEndService"`
+
+	// +kubebuilder:default=8080
+	// +kubebuilder:validation:Minimum=4096
+	ServerPort *int32 `json:"serverPort"`
 }
 
 type ApachewebSpec struct {
@@ -48,10 +57,6 @@ type ApachewebSpec struct {
 	Size int32 `json:"size"`
 
 	ServerName string `json:"serverName"`
-
-	// +kubebuilder:default=8080
-	// +kubebuilder:validation:Minimum=4096
-	ServerPort int32 `json:"serverPort"`
 
 	// +kubebuilder:validation:Enum={"web", "lb"}
 	Type string `json:"type"`

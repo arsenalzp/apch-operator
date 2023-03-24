@@ -24,6 +24,7 @@ func (r *ApachewebReconciler) createWebConfmap(aw v1alpha1.Apacheweb) (corev1.Co
 
 	// Load balancer configuration
 	webServerConfig := v1alpha1.WebServer{
+		ServerPort:   aw.Spec.WebServer.ServerPort,
 		DocumentRoot: aw.Spec.WebServer.DocumentRoot,
 		ServerAdmin:  aw.Spec.WebServer.ServerAdmin,
 	}
