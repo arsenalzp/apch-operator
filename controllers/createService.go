@@ -9,16 +9,16 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-func (r *ApachewebReconciler) createService(aw v1alpha1.Apacheweb) (corev1.Service, error) {
+func (r *ApachewebReconciler) createService(apacheWeb v1alpha1.Apacheweb) (corev1.Service, error) {
 	// The port that will be exposed by this service
 	var port int32
 
-	if aw.Spec.WebServer != nil {
-		port = *aw.Spec.WebServer.ServerPort
+	if apacheWeb.Spec.WebServer != nil {
+		port = *apacheWeb.Spec.WebServer.ServerPort
 	}
 
-	if aw.Spec.LoadBalancer != nil {
-		port = *aw.Spec.LoadBalancer.ServerPort
+	if apacheWeb.Spec.LoadBalancer != nil {
+		port = *apacheWeb.Spec.LoadBalancer.ServerPort
 	}
 
 	service := corev1.Service{
@@ -27,9 +27,9 @@ func (r *ApachewebReconciler) createService(aw v1alpha1.Apacheweb) (corev1.Servi
 			Kind:       "Service",
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Namespace: aw.Namespace,
-			Name:      aw.Name,
-			Labels:    map[string]string{"servername": aw.Spec.ServerName},
+			Namespace: apacheWeb.Namespace,
+			Name:      apacheWeb.Name,
+			Labels:    map[string]string{"servername": apacheWeb.Spec.ServerName},
 		},
 		Spec: corev1.ServiceSpec{
 			Type: "ClusterIP",
@@ -41,11 +41,11 @@ func (r *ApachewebReconciler) createService(aw v1alpha1.Apacheweb) (corev1.Servi
 					TargetPort: intstr.FromInt(int(port)),
 				},
 			},
-			Selector: map[string]string{"servername": aw.Spec.ServerName},
+			Selector: map[string]string{"servername": apacheWeb.Spec.ServerName},
 		},
 	}
 
-	if err := ctrl.SetControllerReference(&aw, &service, r.Scheme); err != nil {
+	if err := ctrl.SetControllerReference(&apacheWeb, &service, r.Scheme); err != nil {
 		return service, err
 	}
 

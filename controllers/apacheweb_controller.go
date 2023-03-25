@@ -18,8 +18,8 @@ package controllers
 
 import (
 	"context"
-	"crypto/md5"
 	"fmt"
+	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -29,8 +29,10 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"apache-operator/api/v1alpha1"
@@ -75,11 +77,11 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	// Get Apacheweb resource
 	if err := r.Get(ctx, req.NamespacedName, &apacheWeb); err != nil {
 		if errors.IsNotFound(err) {
-			logr.Error(err, "ApacheWeb object not found")
-			return ctrl.Result{}, err
+			logr.Info("ApacheWeb resource not found. Seems, it was deleted.")
+			return ctrl.Result{}, nil
 		}
 
-		logr.Error(err, "unable to fetch ApacheWeb")
+		logr.Error(err, "unable to fetch ApacheWeb resource")
 		return ctrl.Result{}, err
 	}
 
@@ -88,6 +90,7 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, err
 	}
 
+	// Switch between Loadbalancer and Web modes
 	switch apacheWeb.Spec.Type {
 	case "lb":
 		var endPointSliceList discovery.EndpointSliceList
@@ -99,7 +102,7 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 
 		// Generate array of v1alpha1.EndPoint
-		epList := genBackEndsList(apacheWeb.Spec.LoadBalancer.BackEndService, apacheWeb.Spec.LoadBalancer.Proto, endPointSliceList)
+		endPointsList, endPointsLisVers := genBackEndsList(apacheWeb.Spec.LoadBalancer.BackEndService, apacheWeb.Spec.LoadBalancer.Proto, endPointSliceList)
 
 		// Get the Deployment objects
 		if err := r.Get(ctx, req.NamespacedName, &deployment); err != nil && !errors.IsNotFound(err) {
@@ -113,31 +116,30 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return ctrl.Result{}, err
 		}
 
+		if configMap.Annotations["endPointSliceVersion"] == endPointsLisVers &&
+			configMap.Annotations["apacheWebGeneration"] == strconv.FormatInt(apacheWeb.GetGeneration(), 10) {
+			return ctrl.Result{}, nil
+		}
+
 		// Generate ConfigMap template
-		newConfMap, err := r.createLbConfmap(apacheWeb, epList)
+		newConfMap, err := r.createLbConfmap(apacheWeb, endPointsList, endPointsLisVers)
 		if err != nil {
 			logr.Error(err, "unable to generate Apacheweb configMap")
 			return ctrl.Result{}, err
 		}
 
-		// If an old and a new ConfigMap object are equal then stop reconciliation process
-		if isConfiMapsEqual(&configMap, &newConfMap) {
-			logr.Info("ConfigMap wasn't changed, nothing to patch, finishing apacheWeb reconciliation")
-			return ctrl.Result{}, nil
-		}
-
 		applyOpts := []client.PatchOption{client.ForceOwnership, client.FieldOwner("ApacheWeb")}
+
+		// Patch ConfigMap resource
+		if err := r.Patch(ctx, &newConfMap, client.Apply, applyOpts...); err != nil {
+			logr.Error(err, "unable to patch Apacheweb configMap")
+			return ctrl.Result{}, err
+		}
 
 		// Generate Deployment resource
 		deployment, err = r.createDeployment(apacheWeb, newConfMap)
 		if err != nil {
 			logr.Error(err, "unable to generate Apacheweb deployment")
-			return ctrl.Result{}, err
-		}
-
-		// Patch ConfigMap resource
-		if err := r.Patch(ctx, &newConfMap, client.Apply, applyOpts...); err != nil {
-			logr.Error(err, "unable to patch Apacheweb configMap")
 			return ctrl.Result{}, err
 		}
 
@@ -147,8 +149,8 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return ctrl.Result{}, err
 		}
 
-		apacheWeb.Status.EndPoints = epList
-		for _, ep := range epList {
+		apacheWeb.Status.EndPoints = endPointsList
+		for _, ep := range endPointsList {
 			if !ep.Status {
 				r.recorder.Eventf(&apacheWeb, "Warning", "Deleted", "EndPoint with IPAddress %s, port %d, protocol %s, has status %t and is being deleted from the list", ep.IPAddress, ep.Port, ep.Proto, ep.Status)
 			}
@@ -195,6 +197,12 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if err := r.Patch(ctx, &deployment, client.Apply, applyOpts...); err != nil {
 			logr.Error(err, "unable to patch Apacheweb deployment")
 			return ctrl.Result{}, err
+		}
+
+		apacheWeb.Status.WebServer = &v1alpha1.WebServer{
+			DocumentRoot: apacheWeb.Spec.WebServer.DocumentRoot,
+			ServerPort:   apacheWeb.Spec.WebServer.ServerPort,
+			ServerAdmin:  apacheWeb.Spec.WebServer.ServerAdmin,
 		}
 
 		r.recorder.Eventf(&apacheWeb, "Normal", "Created", "Apache Web Server created: ServerPort %d, ServerName %s, DocumentRoot %s", *apacheWeb.Spec.WebServer.ServerPort, apacheWeb.Spec.ServerName, apacheWeb.Spec.WebServer.DocumentRoot)
@@ -258,9 +266,29 @@ func (r *ApachewebReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&source.Kind{Type: &discovery.EndpointSlice{}},
 			handler.EnqueueRequestsFromMapFunc(r.getApacheWebWithEndPoints),
 		).
+		WithEventFilter(customPredicate()).
 		Complete(r)
 }
 
-func isConfiMapsEqual(oldConfMap, newConfMap *corev1.ConfigMap) bool {
-	return md5.Sum([]byte(oldConfMap.Data["httpd.conf"])) == md5.Sum([]byte(newConfMap.Data["httpd.conf"]))
+// Function defines custom predicates for Create, Update and Delete events.\
+func customPredicate() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return true
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			if _, ok := e.ObjectNew.(*discovery.EndpointSlice); ok {
+				return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+			}
+
+			if _, ok := e.ObjectNew.(*v1alpha1.Apacheweb); ok {
+				return e.ObjectOld.GetGeneration() != e.ObjectNew.GetGeneration()
+			}
+
+			return false
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return !e.DeleteStateUnknown
+		},
+	}
 }

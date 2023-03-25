@@ -4,6 +4,7 @@ import (
 	"apache-operator/api/v1alpha1"
 	"bytes"
 	"fmt"
+	"strconv"
 	"text/template"
 
 	corev1 "k8s.io/api/core/v1"
@@ -14,8 +15,8 @@ import (
 // generate ConfigMap resource from the given input
 // ConfigMap store Apace HTTPD configuration - httpd.conf file
 // which is mounted to /usr/local/apache2/conf directory
-func (r *ApachewebReconciler) createLbConfmap(aw v1alpha1.Apacheweb, ep []v1alpha1.EndPoint) (corev1.ConfigMap, error) {
-	t := template.New(aw.Spec.Type)
+func (r *ApachewebReconciler) createLbConfmap(apacheWeb v1alpha1.Apacheweb, endPointsList []v1alpha1.EndPoint, endPointsListVers string) (corev1.ConfigMap, error) {
+	t := template.New(apacheWeb.Spec.Type)
 	t, err := t.Parse(loadbalancerTemplate)
 	if err != nil {
 		fmt.Printf("Unabel parse template %s", err)
@@ -24,10 +25,10 @@ func (r *ApachewebReconciler) createLbConfmap(aw v1alpha1.Apacheweb, ep []v1alph
 
 	// Load balancer configuration
 	loadbalancerConfig := v1alpha1.LoadBalancer{
-		EndPointsList: ep,
-		Proto:         aw.Spec.LoadBalancer.Proto,
-		Path:          aw.Spec.LoadBalancer.Path,
-		ServerPort:    aw.Spec.LoadBalancer.ServerPort,
+		EndPointsList: endPointsList,
+		Proto:         apacheWeb.Spec.LoadBalancer.Proto,
+		Path:          apacheWeb.Spec.LoadBalancer.Path,
+		ServerPort:    apacheWeb.Spec.LoadBalancer.ServerPort,
 	}
 
 	var httpdConf bytes.Buffer
@@ -42,10 +43,14 @@ func (r *ApachewebReconciler) createLbConfmap(aw v1alpha1.Apacheweb, ep []v1alph
 			Kind:       "ConfigMap",
 		},
 		ObjectMeta: v1.ObjectMeta{
-			Namespace: aw.Namespace,
-			Name:      aw.Name,
+			Namespace: apacheWeb.Namespace,
+			Name:      apacheWeb.Name,
 			Labels: map[string]string{
-				"servername": aw.Spec.ServerName,
+				"servername": apacheWeb.Spec.ServerName,
+			},
+			Annotations: map[string]string{
+				"endPointSliceVersion": endPointsListVers,
+				"apacheWebGeneration":  strconv.FormatInt(apacheWeb.GetGeneration(), 10),
 			},
 		},
 		Data: map[string]string{
@@ -53,7 +58,7 @@ func (r *ApachewebReconciler) createLbConfmap(aw v1alpha1.Apacheweb, ep []v1alph
 		},
 	}
 
-	if err := ctrl.SetControllerReference(&aw, &configMap, r.Scheme); err != nil {
+	if err := ctrl.SetControllerReference(&apacheWeb, &configMap, r.Scheme); err != nil {
 		return configMap, err
 	}
 

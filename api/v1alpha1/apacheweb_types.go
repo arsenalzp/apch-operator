@@ -54,6 +54,7 @@ type LoadBalancer struct {
 
 type ApachewebSpec struct {
 	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=5
 	Size int32 `json:"size"`
 
 	ServerName string `json:"serverName"`
@@ -70,11 +71,6 @@ type ApachewebSpec struct {
 
 // ApachewebStatus defines the observed state of Apacheweb
 type ApachewebStatus struct {
-	Size       int32  `json:"size"`
-	ServerName string `json:"serverPort"`
-	ServerPort int32  `json:"port"`
-	Type       string `json:"type"`
-
 	// +optional
 	EndPoints []EndPoint `json:"endPoints,omitempty"`
 
@@ -82,10 +78,14 @@ type ApachewebStatus struct {
 	WebServer *WebServer `json:"webServer,omitempty"`
 }
 
+// Apacheweb is the Schema for the apachewebs API
+
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// Apacheweb is the Schema for the apachewebs API
+// +kubebuilder:printcolumn:name="Size",type=integer,JSONPath=`.spec.size`
+// +kubebuilder:printcolumn:name="Server Name",type=string,JSONPath=`.spec.serverName`
+// +kubebuilder:printcolumn:name="Type",type=string,JSONPath=".spec.type"
 type Apacheweb struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

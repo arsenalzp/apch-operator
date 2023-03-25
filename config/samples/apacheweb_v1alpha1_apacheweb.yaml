@@ -11,12 +11,12 @@ metadata:
 spec:
   serverName: "test.example.com"
   size: 2
-  type: "lb"
-  # webServer:
-  #     documentRoot: /usr/local/apache2
-  #     serverAdmin: test@arsenal-laptop
-  #     serverPort: 8888
-  loadBalancer:
-    proto: http
-    path: /test
-    backEndService: httpd-test
+  type: "web"
+  webServer:
+      documentRoot: /usr/local/apache2
+      serverAdmin: test@example.com
+      serverPort: 8888
+  # loadBalancer:
+  #   proto: http
+  #   path: /test
+  #   backEndService: httpd-test
