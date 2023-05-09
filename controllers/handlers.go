@@ -9,6 +9,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// Function returns EndpoitSlice with a label equal .spec.loadBalancer.backEndService of ApacheWeb resource
 func (r *ApachewebReconciler) getApacheWebWithEndPoints(es client.Object) []ctrl.Request {
 	listOptions := []client.ListOption{
 		// matching our index
