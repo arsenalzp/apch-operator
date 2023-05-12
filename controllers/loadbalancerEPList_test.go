@@ -67,7 +67,7 @@ var (
 	}
 )
 
-func TestgenBackEndsList(t *testing.T) {
+func TestGenBackEndsList(t *testing.T) {
 	outEndPoints, outResourceVers := genBackEndsList(backEndServiceName, proto, endPointsSlice)
 	if reflect.DeepEqual(outEndPoints, expectedEndPoints) || outResourceVers != expectedResourceVers {
 		t.Errorf("Output %v not equal to expected %v", outEndPoints, outResourceVers)
