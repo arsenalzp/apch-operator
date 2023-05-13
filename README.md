@@ -1,8 +1,8 @@
 # Apacheweb-operator
-Apacheweb operator provides basic features of Apache HTTPD server: web-server and load balancer.
+Apacheweb operator provides basic features of Apache HTTPD server: web server and load balancer.
 
 ## Description
-Apache HTTPD was the most popular HTTPD server in the near past and remains very popular in the Internet in nowadays, so the main goal of the operator is to bring Apache HTTPD to k8s world.
+Apache HTTPD was the most popular HTTPD server in the near past and remains very popular in the Internet in nowadays, so the main goal of this operator is to bring Apache HTTPD features to K8S world.
 
 ## Getting Started
 You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
@@ -40,6 +40,32 @@ make docker-build docker-push IMG=<some-registry>/apache-operator:tag
 
 ```sh
 make deploy IMG=<some-registry>/apache-operator:tag
+```
+
+### Create Apacheweb resource
+```yaml
+apiVersion: apacheweb.arsenal.dev/v1alpha1
+kind: Apacheweb
+metadata:
+  labels:
+    app.kubernetes.io/name: apacheweb
+    app.kubernetes.io/instance: apacheweb-sample
+    app.kubernetes.io/part-of: apache-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: apache-operator
+  name: apacheweb-sample
+spec:
+  serverName: "test.example.com"
+  size: 2
+  type: "lb"
+  loadBalancer:
+    proto: http
+    path: /test
+    backEndService: httpd-test
+```
+
+```bash
+kubectl apply -f apacheweb.yaml
 ```
 
 ### Uninstall CRDs
