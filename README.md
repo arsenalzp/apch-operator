@@ -1,14 +1,16 @@
-# apache-operator
-// TODO(user): Add simple overview of use/purpose
+# Apacheweb-operator
+Apacheweb operator provides basic features of Apache HTTPD server: web-server and load balancer.
 
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+Apache HTTPD was the most popular HTTPD server in the near past and remains very popular in the Internet in nowadays, so the main goal of the operator is to bring Apache HTTPD to k8s world.
 
 ## Getting Started
 You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
 **Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
 
-### Running on the cluster
+### Deploy operator by using OLM
+
+### Deploy operator on the cluster manually
 1. Install Instances of Custom Resources:
 
 ```sh
@@ -40,9 +42,6 @@ UnDeploy the controller to the cluster:
 ```sh
 make undeploy
 ```
-
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
 
 ### How it works
 This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
