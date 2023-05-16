@@ -92,7 +92,7 @@ kubectl apply -f apacheweb.yaml
 If you use Apacheweb as load balancer, don't forget labeling the Servie resource which was put in spec.loadBalancer.backEndService
 
 ```bash
-k label service httpd-test "kubernetes.io/service-name=httpd-test"
+kubectl label service httpd-test "kubernetes.io/service-name=httpd-test"
 ```
 
 ### How it works
