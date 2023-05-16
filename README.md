@@ -89,6 +89,17 @@ spec:
 ```bash
 kubectl apply -f apacheweb.yaml
 ```
+If you use Apacheweb as load balancer, don't forget labeling the Servie resource which was put in spec.loadBalancer.backEndService
+
+```bash
+k label service httpd-test "kubernetes.io/service-name=httpd-test"
+```
+
+### How it works
+This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
+
+It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/) 
+which provides a reconcile function responsible for synchronizing resources untile the desired state is reached on the cluster 
 
 ### Uninstall CRDs
 To delete the CRDs from the cluster:
@@ -103,12 +114,6 @@ UnDeploy the controller to the cluster:
 ```sh
 make undeploy
 ```
-
-### How it works
-This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
-
-It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/) 
-which provides a reconcile function responsible for synchronizing resources untile the desired state is reached on the cluster 
 
 ### Modifying the API definitions
 If you are editing the API definitions, generate the manifests such as CRs or CRDs using:
