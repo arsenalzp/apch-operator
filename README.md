@@ -35,14 +35,14 @@ kubectl apply -f config/samples/
 ```sh
 make docker-build docker-push IMG=<some-registry>/apache-operator:tag
 ```
-	
+	 
 3. Deploy the controller to the cluster with the image specified by `IMG`:
 
 ```sh
 make deploy IMG=<some-registry>/apache-operator:tag
 ```
 
-### Create Apacheweb resource
+### Create Apacheweb resource for load balancing
 ```yaml
 apiVersion: apacheweb.arsenal.dev/v1alpha1
 kind: Apacheweb
@@ -57,11 +57,33 @@ metadata:
 spec:
   serverName: "test.example.com"
   size: 2
-  type: "lb"
+  type: "lb" # type of operator: use "web" for web server or "lb" for load balancer
   loadBalancer:
-    proto: http
-    path: /test
-    backEndService: httpd-test
+    proto: https # proxy protocol
+    path: /test # proxy path
+    backEndService: httpd-test # name of Service forwarding to
+```
+
+### Create Apacheweb resource for web server
+```yaml
+apiVersion: apacheweb.arsenal.dev/v1alpha1
+kind: Apacheweb
+metadata:
+  labels:
+    app.kubernetes.io/name: apacheweb
+    app.kubernetes.io/instance: apacheweb-sample
+    app.kubernetes.io/part-of: apache-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: apache-operator
+  name: apacheweb-sample
+spec:
+  serverName: "test.example.com"
+  size: 2
+  type: "web" # type of operator: use "web" for web server or "lb" for load balancer
+  webServer:
+    documentRoot: /usr/local/apache2
+    serverAdmin: test@example.com
+    serverPort: 8888
 ```
 
 ```bash
