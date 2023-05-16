@@ -9,14 +9,14 @@ import (
 // The function-helper is intendet to generate
 // Apache HTTPD config pattern by using EndpointSlice resource
 // Output of this function is is array of v1alpha1.EndPoint
-func genBackEndsList(backEndServiceName, proto string, endPointsSlice discovery.EndpointSliceList) ([]v1alpha1.EndPoint, string) {
+func genBackEndsList(backEndServiceName, proto string, endPointSliceList discovery.EndpointSliceList) ([]v1alpha1.EndPoint, string) {
 	var endPointSlice discovery.EndpointSlice
 	var endPointsList = make([]v1alpha1.EndPoint, 0)
 	var endPointsListVers string
 
-	// retrieve EndPointSlice which is related to ApacheWeb resource: label "kubernetes.io/service-name" is equal to
+	// Retrieve EndPointSlice which is related to ApacheWeb resource: label "kubernetes.io/service-name" is equal to
 	// apacheWeb.Spec.LoadBalancer.BackEndService property
-	for _, i := range endPointsSlice.Items {
+	for _, i := range endPointSliceList.Items {
 		if i.Labels["kubernetes.io/service-name"] == backEndServiceName {
 			endPointSlice = i
 			endPointsListVers = i.GetResourceVersion()

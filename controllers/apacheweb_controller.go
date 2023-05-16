@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -95,8 +96,21 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	case "lb":
 		var endPointSliceList discovery.EndpointSliceList
 
+		// Define labels selector for options of list request
+		labelsSelector, err := labels.Parse("kubernetes.io/service-name=" + apacheWeb.Spec.LoadBalancer.BackEndService)
+		if err != nil {
+			logr.Error(err, "unable to parse labels that matches EndpoinsSlice labels")
+			return ctrl.Result{}, err
+		}
+
+		// Define options for a list request
+		listOptions := client.ListOptions{
+			LabelSelector: labelsSelector,
+			Namespace:     req.Namespace,
+		}
+
 		// Get the list of EndpointSlices
-		if err := r.List(ctx, &endPointSliceList, client.InNamespace(req.Namespace)); err != nil {
+		if err := r.List(ctx, &endPointSliceList, &listOptions); err != nil {
 			logr.Error(err, "unable to retrieve EndPointSlice list")
 			return ctrl.Result{}, err
 		}
@@ -149,6 +163,7 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return ctrl.Result{}, err
 		}
 
+		// Update Apacheweb status with new endpoints list
 		apacheWeb.Status.EndPoints = endPointsList
 		for _, ep := range endPointsList {
 			if !ep.Status {
