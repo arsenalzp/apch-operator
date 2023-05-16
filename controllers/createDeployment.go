@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"apache-operator/api/v1alpha1"
-	"fmt"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -13,8 +12,6 @@ import (
 // generate Deployment resource from the given input
 // Deployment resource is used for Apache HTTPD load balancer Pods
 func (r *ApachewebReconciler) createDeployment(apacheWeb v1alpha1.Apacheweb, configMap corev1.ConfigMap) (appsv1.Deployment, error) {
-	//checkSum := md5.Sum([]byte(cf.Data["httpd.conf"]))
-	fmt.Printf("Version of new Configmap resource %s\n", configMap.GetResourceVersion())
 	deployment := appsv1.Deployment{
 		TypeMeta: v1.TypeMeta{
 			APIVersion: appsv1.SchemeGroupVersion.String(),
