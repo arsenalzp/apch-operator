@@ -1,5 +1,5 @@
 # Apacheweb-operator
-Apacheweb operator provides basic features of *Apache HTTPD* server - web server and load balancer by using the extensions of Apache module *mod_proxy_balancer*
+**Apacheweb** operator provides basic features of *Apache HTTPD* server - web server and load balancer by using the extensions of Apache module *mod_proxy_balancer*
 
 ## Description
 *Apache HTTPD* was the most popular HTTPD server in the near past and remains very popular in the Internet in nowadays, so the main goal of this operator is to bring *Apache HTTPD* features to *Kubernetes* world.
@@ -90,7 +90,7 @@ spec:
 kubectl apply -f apacheweb.yaml
 ```
 
-If you use Apacheweb as load balancer, don't forget labeling the Servie resource which was put in spec.loadBalancer.backEndService - this service is used as a source of a target (remote) endpoints.
+If you use **Apacheweb** as load balancer, don't forget labeling the Servie resource which was put in *spec.loadBalancer.backEndService* - this service is used as a source of a target (remote) endpoints.
 
 ```bash
 kubectl label service remote-server "kubernetes.io/service-name=remote-server"
@@ -136,7 +136,7 @@ curl http://10.244.77.10:8080/test
 hostname: remote-server-7fc9dffd6b-x6lhb
 ```
 
-You can use a Service for Apacheweb resources to destribute workloads between the load balancers
+You can use a *Service* for **Apacheweb** resources to destribute workloads between the load balancers
 
 ### How it works
 This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
