@@ -1,5 +1,6 @@
 # About Apacheweb operator
-Apacheweb operator is powered by [Apache HTTP server](https://httpd.apache.org/)
+Apacheweb operator is powered by [Apache HTTP server](https://httpd.apache.org/).
+
 **Apacheweb** operator provides basic features of *Apache HTTP* server - web server and load balancer by using the extensions of Apache module *mod_proxy_balancer*.
 
 ## Description
