@@ -1,8 +1,9 @@
-# Apacheweb-operator
-**Apacheweb** operator provides basic features of *Apache HTTPD* server - web server and load balancer by using the extensions of Apache module *mod_proxy_balancer*
+# About Apacheweb operator
+Apacheweb operator is powered by [Apache HTTP server](https://httpd.apache.org/)
+**Apacheweb** operator provides basic features of *Apache HTTP* server - web server and load balancer by using the extensions of Apache module *mod_proxy_balancer*.
 
 ## Description
-*Apache HTTPD* was the most popular HTTPD server in the near past and remains very popular in the Internet in nowadays, so the main goal of this operator is to bring *Apache HTTPD* features to *Kubernetes* world.
+*Apache HTTP server* was the most popular HTTP server in the near past and remains very popular in the Internet in nowadays, so the main goal of this operator is to bring *Apache HTTP server* features to *Kubernetes* world.
 
 ## Getting Started
 You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
