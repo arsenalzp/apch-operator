@@ -156,6 +156,7 @@ UnDeploy the controller to the cluster:
 
 ```sh
 make undeploy
+<<<<<<< HEAD
 ```
 
 ### Modifying the API definitions
@@ -193,3 +194,6 @@ Copyright 2023.
    limitations under the License.
 
 >>>>>>> a2ed2d4adf5e40b999efe684e1844177f759ce07
+=======
+```
+>>>>>>> readme
