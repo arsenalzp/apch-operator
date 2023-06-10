@@ -28,6 +28,7 @@ rules:
   resources:
   - apachewebs/status
   verbs:
+  - create
   - get
   - patch
   - update
@@ -73,15 +74,18 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - service
+  - services
   verbs:
+  - create
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
-  - discovery
+  - discovery.k8s.io
   resources:
-  - endpointslice
+  - endpointslices
   verbs:
   - get
   - list
