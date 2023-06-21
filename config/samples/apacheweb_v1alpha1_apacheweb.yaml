@@ -16,3 +16,15 @@ spec:
     proto: http
     path: /test
     backEndService: remote-server
+    proxyPaths:
+    - path: /test1
+      endPointsList:
+      - ipAddress: arsenal-laptop
+        port: 9876
+        proto: http
+    - path: /test2
+      endPointsList:
+      - ipAddress: arsenal-laptop
+        port: 9876
+        proto: http
+
