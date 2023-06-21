@@ -43,6 +43,36 @@ make docker-build docker-push IMG=<some-registry>/apache-operator:tag
 ```sh
 make deploy IMG=<some-registry>/apache-operator:tag
 ```
+### Create Apacheweb resource for ProxyPaths
+```yaml
+apiVersion: apacheweb.arsenal.dev/v1alpha1
+kind: Apacheweb
+metadata:
+  labels:
+    app.kubernetes.io/name: apacheweb
+    app.kubernetes.io/instance: apacheweb-sample
+    app.kubernetes.io/part-of: apache-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: apache-operator
+  name: apacheweb-sample
+spec:
+  serverName: "test.example.com"
+  size: 2
+  type: "lb"
+  loadBalancer:
+    serverPort: 8080
+    proxyPaths:
+    - endPointsList:
+      - ipAddress: remote-host
+        port: 9876
+        proto: http
+      path: /test1
+    - endPointsList:
+      - ipAddress: remote-host
+        port: 9876
+        proto: http
+      path: /test2
+```
 
 ### Create Apacheweb resource for load balancing
 ```yaml
