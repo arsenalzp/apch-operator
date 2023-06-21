@@ -15,7 +15,7 @@ import (
 // generate ConfigMap resource from the given input
 // ConfigMap store Apace HTTPD configuration - httpd.conf file
 // which is mounted to /usr/local/apache2/conf directory
-func (r *ApachewebReconciler) createLbConfmap(apacheWeb v1alpha1.Apacheweb, endPointsList []v1alpha1.EndPoint, endPointsListVers string) (corev1.ConfigMap, error) {
+func (r *ApachewebReconciler) createLbConfmap(apacheWeb v1alpha1.Apacheweb, endPointsList []v1alpha1.EndPoint, proxyPaths []v1alpha1.ProxyPath, endPointsListVers string) (corev1.ConfigMap, error) {
 	t := template.New(apacheWeb.Spec.Type)
 	t, err := t.Parse(loadbalancerTemplate)
 	if err != nil {
@@ -29,6 +29,7 @@ func (r *ApachewebReconciler) createLbConfmap(apacheWeb v1alpha1.Apacheweb, endP
 		Proto:         apacheWeb.Spec.LoadBalancer.Proto,
 		Path:          apacheWeb.Spec.LoadBalancer.Path,
 		ServerPort:    apacheWeb.Spec.LoadBalancer.ServerPort,
+		ProxyPaths:    proxyPaths,
 	}
 
 	var httpdConf bytes.Buffer

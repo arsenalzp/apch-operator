@@ -33,6 +33,8 @@ LoadModule proxy_balancer_module modules/mod_proxy_balancer.so
 LoadModule proxy_http_module modules/mod_proxy_http.so
 LoadModule slotmem_shm_module modules/mod_slotmem_shm.so
 LoadModule lbmethod_byrequests_module modules/mod_lbmethod_byrequests.so
+
+{{if .EndPointsList}}
 <Proxy balancer://lb>
 	{{- range .EndPointsList }}
         {{- if .Status }}
@@ -43,6 +45,20 @@ LoadModule lbmethod_byrequests_module modules/mod_lbmethod_byrequests.so
 
 ProxyPass {{.Path}} balancer://lb
 ProxyPassReverse {{.Path}} balancer://lb
+{{end}}
+
+{{if .ProxyPaths}}
+ {{range $i, $pp := .ProxyPaths}}
+<Proxy balancer://lb{{$i}}>
+  {{range $ep := $pp.EndPointsList}}
+   BalancerMember {{$ep.Proto}}://{{$ep.IPAddress}}:{{$ep.Port}}
+  {{end}}
+</Proxy>
+  
+ProxyPass {{.Path}} balancer://lb{{$i}}
+ProxyPassReverse {{.Path}} balancer://lb{{$i}}
+ {{end}}
+{{end}}
 
 <IfModule unixd_module>
 User www-data

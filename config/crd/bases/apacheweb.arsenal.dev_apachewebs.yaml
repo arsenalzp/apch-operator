@@ -25,6 +25,9 @@ spec:
     - jsonPath: .spec.type
       name: Type
       type: string
+    - jsonPath: .spec.loadBalancer
+      name: Load Balancers
+      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -69,15 +72,39 @@ spec:
                     type: string
                   proto:
                     type: string
+                  proxyPaths:
+                    items:
+                      properties:
+                        endPointsList:
+                          items:
+                            properties:
+                              ipAddress:
+                                type: string
+                              port:
+                                format: int32
+                                type: integer
+                              proto:
+                                type: string
+                              status:
+                                type: boolean
+                            required:
+                            - ipAddress
+                            - port
+                            - proto
+                            type: object
+                          type: array
+                        path:
+                          type: string
+                      required:
+                      - path
+                      type: object
+                    type: array
                   serverPort:
                     default: 8080
                     format: int32
                     minimum: 4096
                     type: integer
                 required:
-                - backEndService
-                - path
-                - proto
                 - serverPort
                 type: object
               serverName:
@@ -132,6 +159,33 @@ spec:
                   - ipAddress
                   - port
                   - proto
+                  type: object
+                type: array
+              proxyPaths:
+                items:
+                  properties:
+                    endPointsList:
+                      items:
+                        properties:
+                          ipAddress:
+                            type: string
+                          port:
+                            format: int32
+                            type: integer
+                          proto:
+                            type: string
+                          status:
+                            type: boolean
+                        required:
+                        - ipAddress
+                        - port
+                        - proto
+                        type: object
+                      type: array
+                    path:
+                      type: string
+                  required:
+                  - path
                   type: object
                 type: array
               webServer:

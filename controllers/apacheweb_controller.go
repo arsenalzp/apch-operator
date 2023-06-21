@@ -66,10 +66,12 @@ type ApachewebReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.13.0/pkg/reconcile
 func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	var configMap corev1.ConfigMap
-	var deployment appsv1.Deployment
-	var apacheWeb v1alpha1.Apacheweb
-	var apacheWebSvc corev1.Service
+	var configMap corev1.ConfigMap        // configMap object which will be mounted as httpd.conf file into ApacheWeb controller Pod
+	var deployment appsv1.Deployment      // deployment object which for ApacheWeb controller Pod
+	var apacheWeb v1alpha1.Apacheweb      // ApacheWeb object
+	var apacheWebSvc corev1.Service       // Service object which is used for ApacheWeb Pod access
+	var endPointsList []v1alpha1.EndPoint // Array of endpoints
+	var endPointsListVers string          // version of EndPointSliceeList
 
 	logr := log.FromContext(ctx).WithValues("ApacheWeb", req.NamespacedName)
 
@@ -96,27 +98,36 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	case "lb":
 		var endPointSliceList discovery.EndpointSliceList
 
-		// Define labels selector for options of list request
-		labelsSelector, err := labels.Parse("kubernetes.io/service-name=" + apacheWeb.Spec.LoadBalancer.BackEndService)
-		if err != nil {
-			logr.Error(err, "unable to parse labels that matches EndpoinsSlice labels")
+		// Get EndPointSlice matches BackEnd service property
+		if apacheWeb.Spec.LoadBalancer.BackEndService != "" {
+			// Define labels selector for options of list request
+			labelsSelector, err := labels.Parse("kubernetes.io/service-name=" + apacheWeb.Spec.LoadBalancer.BackEndService)
+			if err != nil {
+				logr.Error(err, "unable to parse labels that matches EndpoinsSlice labels")
+				return ctrl.Result{}, err
+			}
+
+			// Define options for a list request
+			listOptions := client.ListOptions{
+				LabelSelector: labelsSelector,
+				Namespace:     req.Namespace,
+			}
+
+			// Get the list of EndpointSlices
+			if err := r.List(ctx, &endPointSliceList, &listOptions); err != nil {
+				logr.Error(err, "unable to retrieve EndPointSlice list")
+				return ctrl.Result{}, err
+			}
+
+			// Generate array of v1alpha1.EndPoint
+			endPointsList, endPointsListVers = genBackEndsList(apacheWeb.Spec.LoadBalancer.BackEndService, apacheWeb.Spec.LoadBalancer.Proto, endPointSliceList)
+		}
+
+		if apacheWeb.Spec.LoadBalancer.BackEndService == "" && apacheWeb.Spec.LoadBalancer.ProxyPaths == nil {
+			err := errors.NewBadRequest("neither back end service nor proxy paths were defined")
+			logr.Error(err, "please defaine BackEnd Service or Proxy Paths resources")
 			return ctrl.Result{}, err
 		}
-
-		// Define options for a list request
-		listOptions := client.ListOptions{
-			LabelSelector: labelsSelector,
-			Namespace:     req.Namespace,
-		}
-
-		// Get the list of EndpointSlices
-		if err := r.List(ctx, &endPointSliceList, &listOptions); err != nil {
-			logr.Error(err, "unable to retrieve EndPointSlice list")
-			return ctrl.Result{}, err
-		}
-
-		// Generate array of v1alpha1.EndPoint
-		endPointsList, endPointsLisVers := genBackEndsList(apacheWeb.Spec.LoadBalancer.BackEndService, apacheWeb.Spec.LoadBalancer.Proto, endPointSliceList)
 
 		// Get the Deployment objects
 		if err := r.Get(ctx, req.NamespacedName, &deployment); err != nil && !errors.IsNotFound(err) {
@@ -130,13 +141,13 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			return ctrl.Result{}, err
 		}
 
-		if configMap.Annotations["endPointSliceVersion"] == endPointsLisVers &&
+		if configMap.Annotations["endPointSliceVersion"] == endPointsListVers &&
 			configMap.Annotations["apacheWebGeneration"] == strconv.FormatInt(apacheWeb.GetGeneration(), 10) {
 			return ctrl.Result{}, nil
 		}
 
 		// Generate ConfigMap template
-		newConfMap, err := r.createLbConfmap(apacheWeb, endPointsList, endPointsLisVers)
+		newConfMap, err := r.createLbConfmap(apacheWeb, endPointsList, apacheWeb.Spec.LoadBalancer.ProxyPaths, endPointsListVers)
 		if err != nil {
 			logr.Error(err, "unable to generate Apacheweb configMap")
 			return ctrl.Result{}, err
@@ -164,13 +175,29 @@ func (r *ApachewebReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 
 		// Update Apacheweb status with new endpoints list
-		apacheWeb.Status.EndPoints = endPointsList
-		for _, ep := range endPointsList {
-			if !ep.Status {
-				r.recorder.Eventf(&apacheWeb, "Warning", "Deleted", "EndPoint with IPAddress %s, port %d, protocol %s, has status %t and is being deleted from the list", ep.IPAddress, ep.Port, ep.Proto, ep.Status)
-			}
+		if endPointsList != nil {
+			apacheWeb.Status.EndPoints = endPointsList
+			for _, ep := range endPointsList {
+				if !ep.Status {
+					r.recorder.Eventf(&apacheWeb, "Warning", "Deleted", "EndPoint with IP address %s, Port %d, Protocol %s, has status %t and is being deleted from the list", ep.IPAddress, ep.Port, ep.Proto, ep.Status)
+				}
 
-			r.recorder.Eventf(&apacheWeb, "Normal", "Created", "EndPoint added IPAddress %s, port %d, protocol %s, status %t", ep.IPAddress, ep.Port, ep.Proto, ep.Status)
+				r.recorder.Eventf(&apacheWeb, "Normal", "Created", "EndPoint added IP address %s, Port %d, Protocol %s, Status %t", ep.IPAddress, ep.Port, ep.Proto, ep.Status)
+			}
+		} else {
+			apacheWeb.Status.EndPoints = nil
+		}
+
+		// Update Apacheweb status with new proxy paths
+		if apacheWeb.Spec.LoadBalancer.ProxyPaths != nil {
+			apacheWeb.Status.ProxyPaths = apacheWeb.Spec.LoadBalancer.ProxyPaths
+			for _, pp := range apacheWeb.Spec.LoadBalancer.ProxyPaths {
+				for _, ep := range pp.EndPointsList {
+					r.recorder.Eventf(&apacheWeb, "Normal", "Created", "Proxy Path added Path %s, IP address %s, Port %d, Protocol %s, Status %t", pp.Path, ep.IPAddress, ep.Port, ep.Proto, ep.Status)
+				}
+			}
+		} else {
+			apacheWeb.Status.ProxyPaths = nil
 		}
 
 	case "web":

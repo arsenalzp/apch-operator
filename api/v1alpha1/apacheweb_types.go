@@ -34,6 +34,11 @@ type WebServer struct {
 	ServerPort *int32 `json:"serverPort"`
 }
 
+type ProxyPath struct {
+	Path          string     `json:"path"`
+	EndPointsList []EndPoint `json:"endPointsList,omitempty"`
+}
+
 type EndPoint struct {
 	IPAddress string `json:"ipAddress"`
 	Proto     string `json:"proto"`
@@ -42,10 +47,11 @@ type EndPoint struct {
 }
 
 type LoadBalancer struct {
-	EndPointsList  []EndPoint `json:"endPointsList,omitempty"`
-	Proto          string     `json:"proto"`
-	Path           string     `json:"path"`
-	BackEndService string     `json:"backEndService"`
+	EndPointsList  []EndPoint  `json:"endPointsList,omitempty"`
+	Proto          string      `json:"proto,omitempty"`
+	Path           string      `json:"path,omitempty"`
+	BackEndService string      `json:"backEndService,omitempty"`
+	ProxyPaths     []ProxyPath `json:"proxyPaths,omitempty"`
 
 	// +kubebuilder:default=8080
 	// +kubebuilder:validation:Minimum=4096
@@ -75,6 +81,9 @@ type ApachewebStatus struct {
 	EndPoints []EndPoint `json:"endPoints,omitempty"`
 
 	// +optional
+	ProxyPaths []ProxyPath `json:"proxyPaths,omitempty"`
+
+	// +optional
 	WebServer *WebServer `json:"webServer,omitempty"`
 }
 
@@ -86,6 +95,7 @@ type ApachewebStatus struct {
 // +kubebuilder:printcolumn:name="Size",type=integer,JSONPath=`.spec.size`
 // +kubebuilder:printcolumn:name="Server Name",type=string,JSONPath=`.spec.serverName`
 // +kubebuilder:printcolumn:name="Type",type=string,JSONPath=".spec.type"
+// +kubebuilder:printcolumn:name="Load Balancers",type=string,JSONPath=".spec.loadBalancer"
 type Apacheweb struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

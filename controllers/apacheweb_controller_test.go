@@ -14,7 +14,6 @@ import (
 )
 
 var _ = Describe("Apacheweb controller", func() {
-
 	const (
 		ApachewebName      = "test-apacheweb"
 		ApachewebNamespace = "default"
