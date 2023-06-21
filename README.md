@@ -145,12 +145,26 @@ Status:
     Port:        80
     Proto:       http
     Status:      true
+  Proxy Paths:
+    End Points List:
+      Ip Address:  remote-server
+      Port:        9876
+      Proto:       http
+    Path:          /path1
+    End Points List:
+      Ip Address:  remote-server
+      Port:        9876
+      Proto:       http
+    Path:          /path2
 Events:
   Type    Reason   Age                    From                  Message
   ----    ------   ----                   ----                  -------
   Normal  Created  3m41s (x3 over 4m11s)  apacheweb-controller  EndPoint added IPAddress 10.244.77.3, port 80, protocol http, status true
   Normal  Created  3m41s (x2 over 3m43s)  apacheweb-controller  EndPoint added IPAddress 10.244.77.6, port 80, protocol http, status true
   Normal  Created  3m41s                  apacheweb-controller  EndPoint added IPAddress 10.244.77.7, port 80, protocol http, status true
+  Normal  Created  9s    apacheweb-controller  Proxy Path added Path /test2, IP address remoe-server, Port 9876, Protocol http, Status false
+  Normal  Created  9s    apacheweb-controller  Proxy Path added Path /test3, IP address remote-server, Port 9876, Protocol http, Status false
+
 ```
 
 ```bash
