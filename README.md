@@ -1,5 +1,9 @@
+# HTTP/2 vulnerabilities
+This operator uses the latest version of docker image with Apache HTTPD server v2.4.58 on date 2/12/2023
+That version contains fixes for CVE-2023-45802, CVE-2023-43622 and CVE-2023-31122
+
 # About Apacheweb operator
-Apacheweb operator is powered by [Apache HTTP server](https://httpd.apache.org/).
+Apacheweb operator is powered by [Apache HTTP server](https://httpd.apache.org/). 
 
 **Apacheweb** operator provides basic features of *Apache HTTP* server - web server and load balancer by using the extensions of Apache module *mod_proxy_balancer*.
 
